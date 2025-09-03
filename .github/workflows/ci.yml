@@ -114,7 +114,7 @@ jobs:
         continue-on-error: true
       - name: Check for unrecognized *-sys dependencies
         run: |
-          ! grep -qP '(?<!\b(linux-raw|libz-rs))-sys\b' tree.txt
+          ! grep -qP '(?<!\blinux-raw)-sys\b' tree.txt
       - name: Wrap cc1 (and cc1plus if present) to record calls
         run: |
           set -o noclobber  # Catch any collisions with existing entries in /usr/local.
@@ -487,8 +487,9 @@ jobs:
           done
       - name: features of gix-features
         run: |
-          set -x
-          for feature in progress parallel io-pipe crc32 zlib cache-efficiency-debug; do
+          set +x
+          for feature in progress parallel io-pipe crc32 zlib zlib-rust-backend cache-efficiency-debug; do
+            (cd gix-features && cargo build --features "$feature" --target "$TARGET")
             cargo build -p gix-features --features "$feature" --target "$TARGET"
           done
       - name: crates with 'wasm' feature

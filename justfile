@@ -102,6 +102,10 @@ check:
     cargo check -p gix-features --features io-pipe
     cargo check -p gix-features --features crc32
     cargo check -p gix-features --features zlib
+    cargo check -p gix-features --features zlib,zlib-ng
+    cargo check -p gix-features --features zlib,zlib-ng-compat
+    cargo check -p gix-features --features zlib-stock
+    cargo check -p gix-features --features zlib,zlib-stock
     cargo check -p gix-features --features cache-efficiency-debug
     cargo check -p gix-commitgraph --all-features
     cargo check -p gix-config-value --all-features

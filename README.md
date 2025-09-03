@@ -430,8 +430,8 @@ Please take a look at the [`SHORTCOMINGS.md` file](https://github.com/GitoxideLa
 
 * **itertools** _(MIT Licensed)_
   * We use the `izip!` macro in code
-* **flate2** _(MIT Licensed)_
-  * We use the high-level `flate2` library to implement decompression and compression, which builds on the high-performance `zlib-rs` crate.
+* **deflate2** _(MIT Licensed)_
+  * We use various abstractions to implement decompression and compression directly on top of the rather low-level `miniz_oxide` crate
 
 ## 🙏 Special Thanks 🙏
 
