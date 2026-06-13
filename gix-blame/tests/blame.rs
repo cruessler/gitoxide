@@ -146,6 +146,7 @@ mod baseline {
 }
 
 struct Fixture {
+    worktree_path: PathBuf,
     odb: gix_odb::Handle,
     resource_cache: gix_diff::blob::Platform,
     suspect: ObjectId,
@@ -215,6 +216,7 @@ impl Fixture {
             stack,
         );
         Ok(Fixture {
+            worktree_path,
             odb,
             resource_cache,
             suspect: head_id,
@@ -227,7 +229,7 @@ impl Fixture {
         options: gix_blame::Options,
     ) -> Result<gix_blame::Outcome, gix_blame::Error> {
         gix_blame::file(
-            fixture_path().expect("TODO"),
+            self.worktree_path.clone(),
             &self.odb,
             self.suspect,
             None,
@@ -246,6 +248,7 @@ macro_rules! mktest {
                 odb,
                 mut resource_cache,
                 suspect,
+                ..
             } = Fixture::new()?;
 
             let source_file_name: gix_object::bstr::BString = format!("{}.txt", $case).into();
@@ -336,6 +339,7 @@ fn diff_algorithm_parity() {
             odb,
             mut resource_cache,
             suspect,
+            ..
         } = Fixture::new().unwrap();
 
         let source_file_name: gix_object::bstr::BString = format!("{case}.txt").into();
@@ -375,6 +379,7 @@ fn file_that_was_added_in_two_branches() -> gix_testtools::Result {
         odb,
         mut resource_cache,
         suspect,
+        ..
     } = Fixture::for_worktree_path(worktree_path.to_path_buf())?;
 
     let source_file_name = "file-with-two-roots.txt";
@@ -405,6 +410,7 @@ fn since() -> gix_testtools::Result {
         odb,
         mut resource_cache,
         suspect,
+        ..
     } = Fixture::new()?;
 
     let source_file_name: gix_object::bstr::BString = "simple.txt".into();
@@ -448,6 +454,7 @@ mod blame_ranges {
             odb,
             mut resource_cache,
             suspect,
+            ..
         } = Fixture::new()?;
 
         let source_file_name: gix_object::bstr::BString = "simple.txt".into();
@@ -485,6 +492,7 @@ mod blame_ranges {
             odb,
             mut resource_cache,
             suspect,
+            ..
         } = Fixture::new()?;
 
         let ranges = BlameRanges::from_one_based_inclusive_ranges(vec![
@@ -532,6 +540,7 @@ mod blame_ranges {
             odb,
             mut resource_cache,
             suspect,
+            ..
         } = Fixture::new()?;
 
         let ranges = BlameRanges::from_one_based_inclusive_ranges(vec![1..=2, 1..=1, 4..=4]).unwrap();
@@ -582,6 +591,7 @@ mod rename_tracking {
             odb,
             mut resource_cache,
             suspect,
+            ..
         } = Fixture::for_worktree_path(worktree_path.to_path_buf())?;
 
         let source_file_name = "after-rename.txt";
