@@ -227,6 +227,7 @@ impl Fixture {
         options: gix_blame::Options,
     ) -> Result<gix_blame::Outcome, gix_blame::Error> {
         gix_blame::file(
+            fixture_path().expect("TODO"),
             &self.odb,
             self.suspect,
             None,
