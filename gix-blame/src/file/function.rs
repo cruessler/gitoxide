@@ -677,20 +677,15 @@ fn external_tree_diff_at_file_path(
             &format!("{tree_id}"),
         ])
         .stdout(Stdio::piped());
-    let mut child = git_diff_cmd.spawn().expect("TODO");
+    let output = git_diff_cmd
+        .output()
+        .unwrap_or_else(|_| panic!("could not get output for `{git_diff_cmd:?}`"));
 
-    if !child.wait().expect("TODO").success() {
+    if !output.status.success() {
         panic!("Command {git_diff_cmd:?} failed");
     }
 
-    let mut diff = Vec::new();
-    child
-        .stdout
-        .expect("to be present")
-        .read_to_end(&mut diff)
-        .expect("TODO");
-
-    Ok(find_tree_diff_change_for_path(&diff, file_path))
+    Ok(find_tree_diff_change_for_path(&output.stdout, file_path))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1010,20 +1005,16 @@ fn blob_changes(
             &format!("{oid}"),
         ])
         .stdout(Stdio::piped());
-    let mut child = git_diff_cmd.spawn().expect("TODO");
 
-    if !child.wait().expect("TODO").success() {
+    let output = git_diff_cmd
+        .output()
+        .unwrap_or_else(|_| panic!("could not get output for `{git_diff_cmd:?}`"));
+
+    if !output.status.success() {
         panic!("Command {git_diff_cmd:?} failed");
     }
 
-    let mut diff = Vec::new();
-    child
-        .stdout
-        .expect("to be present")
-        .read_to_end(&mut diff)
-        .expect("TODO");
-
-    let baseline = baseline::Baseline::new(&diff);
+    let baseline = baseline::Baseline::new(&output.stdout);
 
     let mut last_seen_after_end = 0;
     let changes = baseline.fold(Vec::new(), |mut hunks, hunk| {
