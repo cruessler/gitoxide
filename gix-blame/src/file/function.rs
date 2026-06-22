@@ -260,19 +260,16 @@ pub fn file(
         let more_than_one_parent = parent_ids.len() > 1;
         for (index, (parent_id, parent_commit_time)) in parent_ids.iter().enumerate() {
             queue.insert(*parent_commit_time, *parent_id);
-            let changes_for_file_path = tree_diff_at_file_path(
-                &odb,
+
+            let parent_tree_id = find_commit(cache.as_ref(), &odb, parent_id, &mut buf)?.tree_id()?;
+            let tree_id = find_commit(cache.as_ref(), &odb, &suspect, &mut buf3)?.tree_id()?;
+
+            let changes_for_file_path = external_tree_diff_at_file_path(
+                worktree_path.clone(),
                 current_file_path.as_ref(),
-                suspect,
-                *parent_id,
-                cache.as_ref(),
-                &mut stats,
-                &mut diff_state,
-                resource_cache,
-                &mut buf,
-                &mut buf2,
-                &mut buf3,
-                options.rewrites,
+                options.diff_algorithm,
+                parent_tree_id,
+                tree_id,
             )?;
             let Some(modification) = changes_for_file_path else {
                 if more_than_one_parent {
@@ -604,6 +601,96 @@ fn tree_diff_at_file_path(
     )?;
 
     Ok(result)
+}
+
+fn find_tree_diff_change_for_path(content: &'_ [u8], file_path: &BStr) -> Option<TreeDiffChange> {
+    use gix_object::bstr::ByteSlice;
+
+    for line in content.lines() {
+        let line = line.strip_prefix(b":").unwrap();
+        let parts: Vec<_> = line.split(|b| *b == b' ').collect();
+
+        let previous_id = ObjectId::from_hex(parts[2]).unwrap();
+        let id = ObjectId::from_hex(parts[3]).unwrap();
+        let status_and_path: Vec<_> = parts[4].split(|b| *b == b'\t').collect();
+
+        match status_and_path[..] {
+            [status, path] => {
+                if path == file_path {
+                    return match status {
+                        b"A" => Some(TreeDiffChange::Addition { id }),
+                        b"M" => Some(TreeDiffChange::Modification { previous_id, id }),
+                        b"D" => Some(TreeDiffChange::Deletion),
+                        rename if rename.starts_with(b"R") => {
+                            panic!("rename should have been handled by an earlier branch")
+                        }
+                        character => panic!("`{}` not recognized", character.to_str_lossy()),
+                    };
+                }
+            }
+            [status, path, path_after] => {
+                assert!(status.starts_with(b"R"));
+
+                if path_after == file_path {
+                    let source_location: BString = path.into();
+                    let source_id = ObjectId::from_hex(parts[2]).unwrap();
+
+                    return Some(TreeDiffChange::Rewrite {
+                        source_location,
+                        source_id,
+                        id,
+                    });
+                }
+            }
+            _ => panic!("expected {} to contain a \\t", parts[4].to_str_lossy()),
+        };
+    }
+
+    None
+}
+
+fn external_tree_diff_at_file_path(
+    worktree_path: PathBuf,
+    file_path: &BStr,
+    diff_algorithm: gix_diff::blob::Algorithm,
+    parent_tree_id: ObjectId,
+    tree_id: ObjectId,
+) -> Result<Option<TreeDiffChange>, Error> {
+    use std::{io::Read, process::Stdio};
+
+    let mut git_diff_cmd = std::process::Command::new("git");
+    git_diff_cmd
+        .current_dir(worktree_path)
+        .args([
+            "diff",
+            "--raw",
+            "--no-abbrev",
+            &format!(
+                "--diff-algorithm={}",
+                match diff_algorithm {
+                    gix_diff::blob::Algorithm::Histogram => "histogram",
+                    gix_diff::blob::Algorithm::Myers => "myers",
+                    gix_diff::blob::Algorithm::MyersMinimal => "minimal",
+                }
+            ),
+            &format!("{parent_tree_id}"),
+            &format!("{tree_id}"),
+        ])
+        .stdout(Stdio::piped());
+    let mut child = git_diff_cmd.spawn().expect("TODO");
+
+    if !child.wait().expect("TODO").success() {
+        panic!("Command {git_diff_cmd:?} failed");
+    }
+
+    let mut diff = Vec::new();
+    child
+        .stdout
+        .expect("to be present")
+        .read_to_end(&mut diff)
+        .expect("TODO");
+
+    Ok(find_tree_diff_change_for_path(&diff, file_path))
 }
 
 #[allow(clippy::too_many_arguments)]
