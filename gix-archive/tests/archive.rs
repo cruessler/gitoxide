@@ -20,6 +20,26 @@ mod from_tree {
     #[cfg(target_pointer_width = "32")]
     const EXPECTED_BUFFER_LENGTH: usize = 479;
 
+    /// Focused regression check for the fixture-hash boundary between a Git-created
+    /// object database and `gix-worktree-stream`. The broader archive-format tests
+    /// below assert exact archive contents; this only asserts that the stream can
+    /// read at least one entry for the active fixture hash. It passes for SHA-1 and
+    /// currently fails for `GIX_TEST_FIXTURE_HASH=sha256` because the object database
+    /// is opened with SHA-1 defaults before being passed to the stream.
+    #[test]
+    fn worktree_stream_from_git_fixture_uses_fixture_hash() -> gix_testtools::Result {
+        let (_dir, head_tree, odb, _cache) = basic()?;
+        let mut stream =
+            gix_worktree_stream::from_tree(head_tree, odb, noop_pipeline(), |_rela_path, _mode, _attrs| {
+                Ok::<_, std::io::Error>(())
+            });
+        assert!(
+            stream.next_entry().map_err(Exn::into_error)?.is_some(),
+            "a Git fixture created with the active fixture hash should yield at least one stream entry"
+        );
+        Ok(())
+    }
+
     #[test]
     fn basic_usage_internal() -> gix_testtools::Result {
         basic_usage(gix_archive::Format::InternalTransientNonPersistable, |buf| {
